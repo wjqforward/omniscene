@@ -27,13 +27,13 @@ This as an official implementation of our CVPR 2025 paper
 
 Reconstruct scenes with 3D Gaussians given 6-view images from [nuScenes](https://www.nuscenes.org/) in a feed-forward manner:
 
-<video src="assets/videos/recon_examples_normal.mp4" alt=""  width="1100" autoplay="true"></video>
+<video src="assets/videos/recon_examples_normal.mp4" alt=""  width="1100"></video>
 
 ## Demo (3D Generation)
 
 Generate scenes with 3D Gaussians by combining our method with 2D multi-view diffusion model [MagicDrive](https://github.com/cure-lab/MagicDrive):
 
-<video src="assets/videos/synth_examples.m4v" alt=""  width="1100" autoplay="true"></video>
+<video src="assets/videos/synth_examples.m4v" alt=""  width="1100"></video>
 
 
 ## Citation
