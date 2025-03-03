@@ -81,11 +81,11 @@ cat dataset_omniscene_part* > dataset_omniscene.tar
 tar -xvf dataset_omniscene.tar
 rm -rf *.tar
 rm -rf *part*
-mv dataset_omniscene nuScenes
+mv dataset_omniscene {ROOT}/data/nuScenes
 ```
 Put the extracted files under {ROOT}/data, and the data should be structured like this:
 ```bash
-{ROOT}/nuScenes
+{ROOT}/data/nuScenes
 ├── samples_small
 ├── samples_dpt_small
 ├── samples_dptm_small
