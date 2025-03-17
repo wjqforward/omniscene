@@ -23,6 +23,7 @@ In this repository, we provide our code, along with our pre-processed nuScenes d
 
 ## TODO
 - [X] Upload code and data
+- [X] Upload subset of our data for fast demo running
 - [ ] Add tutorial for 3D generation
 - [ ] Add code and documents for Waymo dataset
 
@@ -83,6 +84,8 @@ rm -rf *.tar
 rm -rf *part*
 mv dataset_omniscene {ROOT}/data/nuScenes
 ```
+We also have provided a subset of the above full data on [GoogleDrive](https://drive.google.com/file/d/1P0CuGHBXMfCNDAlq2SbZgBM1TF8YGXKY/view?usp=sharing) for convenience in running demonstration and checking data formulation.
+
 Put the extracted files under {ROOT}/data, and the data should be structured like this:
 ```bash
 {ROOT}/data/nuScenes
@@ -97,7 +100,28 @@ Put the extracted files under {ROOT}/data, and the data should be structured lik
 ├── interp_12Hz_trainval
 ```
 
-### 3. Training
+### 3. Running demo
+
+This command will generate and save 360 degree exploring videos for the reconstructed 3D scenes:
+
+```bash
+accelerate launch --config-file accelerate_config.yaml demo.py \
+    --py-config configs/OmniScene/omni_gs_nusc_novelview_r50_224x400.py \
+    --output-dir outputs/omni_gs_nusc_novelview_r50_224x400_vis \
+    --load-from checkpoints/checkpoint-100000
+```
+where
+- `--config-file accelerate_config.yaml` is the relative path of accelrate configuration file;
+- `--py-config configs/OmniScene/omni_gs_nusc_novelview_r50_224x400.py"` is the relative path of Omni-Scene's configuration file;
+- `--output-dir` is the relative path of output directory. We save the rendered videos here.
+- `--load-from` is the relative path of model weights that you want to use.
+
+> Note1: >=1 A100 GPUs are required to run the demo of our full method.
+
+> Note2: you can only download the subset of our full data for fast running demo.
+>
+
+### 4. Training
 
 The training script is as follows. We have released our pre-trained weights [here](https://drive.google.com/drive/folders/1vgc8VjXhuo35KwFqbJiqdu5FEDg6AMRy?usp=sharing).
 
@@ -116,8 +140,7 @@ where
 > Note: >=2 A100 GPUs are required to run the training of our full method.
 >
 
-
-### 4. Evaluation
+### 5. Evaluation
 
 The evaluation script is as follows.
 
@@ -135,26 +158,6 @@ where
 
 > Note: >=1 A100 GPUs are required to run the evaluation of our full method.
 >
-
-### 5. Running demo
-
-This command will generate and save 360 degree exploring videos for the reconstructed 3D scenes:
-
-```bash
-accelerate launch --config-file accelerate_config.yaml demo.py \
-    --py-config configs/OmniScene/omni_gs_nusc_novelview_r50_224x400.py \
-    --output-dir outputs/omni_gs_nusc_novelview_r50_224x400_vis \
-    --load-from checkpoints/checkpoint-100000
-```
-where
-- `--config-file accelerate_config.yaml` is the relative path of accelrate configuration file;
-- `--py-config configs/OmniScene/omni_gs_nusc_novelview_r50_224x400.py"` is the relative path of Omni-Scene's configuration file;
-- `--output-dir` is the relative path of output directory. We save the rendered videos here.
-- `--load-from` is the relative path of model weights that you want to use.
-
-> Note: >=1 A100 GPUs are required to run the demo of our full method.
->
-
 
 ## Citation
 
