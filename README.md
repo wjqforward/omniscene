@@ -85,6 +85,7 @@ rm -rf *part*
 mv dataset_omniscene {ROOT}/data/nuScenes
 ```
 We also have provided a subset of the above full data on [GoogleDrive](https://drive.google.com/file/d/1P0CuGHBXMfCNDAlq2SbZgBM1TF8YGXKY/view?usp=sharing) for convenience in running demonstration and checking data formulation.
+> Note: [this file](https://drive.google.com/file/d/1KA9HjBJD4ZK-V2L495quuYtVXQpx_RVD/view?usp=drive_link) contains MD5 value for each sub-package file, you can use it to check if there is any file corrupted during downloading. Please refer to [this issue](https://github.com/WU-CVGL/Omni-Scene/issues/10) for details.
 
 Put the extracted files under {ROOT}/data, and the data should be structured like this:
 ```bash
