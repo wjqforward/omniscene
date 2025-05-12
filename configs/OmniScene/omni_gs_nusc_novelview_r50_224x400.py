@@ -11,7 +11,7 @@ grad_max_norm = 1.0
 print_freq = 100
 save_freq = 2000
 val_freq = 500
-max_epochs = 30
+max_epochs = 3
 save_epoch_freq = -1
 
 lr_scheduler_type = "constant_with_warmup"

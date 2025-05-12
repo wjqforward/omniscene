@@ -78,8 +78,8 @@ bins_demo = ['scene04219bfdc9004ba2af16d3079ecc4353_bin061',
 from .transforms.loading import load_info, load_conditions
 class nuScenesDataset(Dataset):
     data_root: str = "data/nuScenes"
-    data_version: str = "interp_12Hz_trainval"
-    #data_version: str = "v1.0-trainval"
+    # data_version: str = "interp_12Hz_trainval"
+    data_version: str = "v1.0-trainval"
     dataset_prefix: str = "/datasets/nuScenes"
     camera_types = [
         "CAM_FRONT",
