@@ -10,6 +10,7 @@ import cv2
 import os.path as osp
 import json
 import copy
+import os
 
 def load_info(info):
     img_path = info["data_path"]
@@ -49,57 +50,50 @@ def load_conditions(img_paths, reso):
     depths = []
     depths_m = []
     confs_m = []
+
+    param_root="/home/Wjq99_/data_wjq/nuscenes_depth/nuscenes_param"
+    conf_root="/home/Wjq99_/data_wjq/nuscenes_depth/nuscenes_conf"
+    depth_root = "/home/Wjq99_/data_wjq/nuscenes_depth/nuscenes_depthlab_norm"
+
     for img_path in img_paths:      
         # param
-        param_path = img_path.replace("samples", "samples_param_small") # 224x400 resolution
-        param_path = param_path.replace("sweeps", "sweeps_param_small")
-        param_path = param_path.replace(".jpg", ".json")
+        if "/samples/" in img_path:
+            split = "samples"
+        elif "/sweeps/" in img_path:
+            split = "sweeps"
+        else:
+            raise ValueError(f"must include samples or sweeps: {img_path}")
+        
+        subpath = img_path.split(f"{split}/", 1)[-1]
+        cam = subpath.split('/')[0]
+        filename = os.path.basename(img_path)
+        stem = os.path.splitext(filename)[0]
+
+        # param
+        param_path = os.path.join(param_root, f"{split}_param", cam, f"{stem}.json")
         param = json.load(open(param_path))
         ck = np.array(param["camera_intrinsic"])
+        cks.append(ck)
 
-        # img
-        img_path = img_path.replace("samples", "samples_small")
-        img_path = img_path.replace("sweeps", "sweeps_small")
+        # img (900*1600 -> 224*400)
         img = Image.open(img_path)
         h, w = img.height, img.width
         img, ck, resize_flag = maybe_resize(img, reso, ck)
         img = HWC3(img)
         imgs.append(img)
-        cks.append(ck)
 
-        # relative depth from DepthAnything-v2
-        depth_path = img_path.replace("sweeps_small", "sweeps_dpt_small")
-        depth_path = depth_path.replace("samples_small", "samples_dpt_small")
-        depth_path = depth_path.replace(".jpg", ".npy")
-        disp = np.load(depth_path).astype(np.float32)
-        if resize_flag:
-            disp = Image.fromarray(disp)
-            disp = disp.resize((reso[1], reso[0]), Image.BILINEAR)
-            disp = np.array(disp)
-        # inverse disparity to relative depth
-        # clamping the farthest depth to 50x of the nearest
-        range = np.minimum(disp.max() / (disp.min() + 0.001), 50.0)
-        max = disp.max()
-        min = max / range
-        depth = 1 / np.maximum(disp, min)
-        depth = (depth - depth.min()) / (depth.max() - depth.min())
-        depths.append(depth)
-        # metric depth from Metric3D-v2
-        depthm_path = img_path.replace("sweeps_small", "sweeps_dptm_small")
-        depthm_path = depthm_path.replace("samples_small", "samples_dptm_small")
-        depthm_path = depthm_path.replace(".jpg", "_dpt.npy")
-        conf_path = depthm_path.replace("_dpt.npy", "_conf.npy")
-        dptm = np.load(depthm_path).astype(np.float32)
-        conf = np.load(conf_path).astype(np.float32)
-        if resize_flag:
-            dptm = Image.fromarray(dptm)
-            dptm = dptm.resize((reso[1], reso[0]), Image.BILINEAR)
-            dptm = np.array(dptm)
-            conf = Image.fromarray(conf)
-            conf = conf.resize((reso[1], reso[0]), Image.BILINEAR)
-            conf = np.array(conf)
+        # metric depth from depthlab (224*400)
+        depthm_path = os.path.join(depth_root, f"{split}_depthlab_norm", cam, f"{stem}.png")
+        dptm = np.array(Image.open(depthm_path)).astype(np.float32) / 256.0
         depths_m.append(dptm)
+
+        # depth conf (224*400)
+        conf_path = os.path.join(conf_root, f"{split}_conf", cam, f"{stem}.npz")
+        conf = np.load(conf_path)["conf"].astype(np.float32)
         confs_m.append(conf)
+
+        # same as depths_m (224*400)
+        depths.append(dptm)
 
     imgs = torch.from_numpy(np.stack(imgs, axis=0)).permute(0, 3, 1, 2).float() / 255.0  # [v c h w]
     depths = torch.from_numpy(np.stack(depths, axis=0)).float()  # [v h w]
