@@ -3,5 +3,5 @@
 **/.DS_Store
 *workdirs*
 **/.cache
-data/nuScenes
-taming
+data/nuScenes/
+taming/

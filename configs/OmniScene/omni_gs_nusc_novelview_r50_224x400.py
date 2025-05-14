@@ -11,7 +11,7 @@ grad_max_norm = 1.0
 print_freq = 100
 save_freq = 2000
 val_freq = 500
-max_epochs = 3
+max_epochs = 10
 save_epoch_freq = -1
 
 lr_scheduler_type = "constant_with_warmup"
@@ -36,7 +36,7 @@ dataset_params = dict(
     use_center=use_center,
     use_first=use_first,
     use_last=use_last,
-    batch_size_train=2,
+    batch_size_train=1,
     batch_size_val=1,
     batch_size_test=4,
     num_workers=8,

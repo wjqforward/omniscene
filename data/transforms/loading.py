@@ -54,12 +54,13 @@ def load_conditions(img_paths, reso):
     param_root="/home/Wjq99_/data_wjq/nuscenes_depth/nuscenes_param"
     conf_root="/home/Wjq99_/data_wjq/nuscenes_depth/nuscenes_conf"
     depth_root = "/home/Wjq99_/data_wjq/nuscenes_depth/nuscenes_depthlab_norm"
+    img_root= "/home/Wjq99_/data_wjq/nuscenes"
 
     for img_path in img_paths:      
         # param
-        if "/samples/" in img_path:
+        if "samples/" in img_path:
             split = "samples"
-        elif "/sweeps/" in img_path:
+        elif "sweeps/" in img_path:
             split = "sweeps"
         else:
             raise ValueError(f"must include samples or sweeps: {img_path}")
@@ -76,6 +77,7 @@ def load_conditions(img_paths, reso):
         cks.append(ck)
 
         # img (900*1600 -> 224*400)
+        img_path = os.path.join(img_root, f"{split}", cam, f"{stem}.jpg")
         img = Image.open(img_path)
         h, w = img.height, img.width
         img, ck, resize_flag = maybe_resize(img, reso, ck)

@@ -122,8 +122,9 @@ def main(args):
     if path:
         accelerator.print(f"Loading from checkpoint {path}")
         accelerator.load_state(path, map_location='cpu', strict=False)
-        global_iter = int(path.split("-")[1])
-        print(f'Successfully loaded from iter{global_iter}')
+        #print(path)
+        #global_iter = int(path.split("-")[1])
+        #print(f'Successfully loaded from iter{global_iter}')
     else:
         print('Can\'t find checkpoint {}. Randomly initialize model parameters anyway.'.format(args.load_from))
     
@@ -193,3 +194,13 @@ if __name__ == '__main__':
     print(args)
     
     main(args)
+
+
+
+
+
+
+
+#
+# accelerate launch config-file accelerate_config.yaml demo.py -py-config configs/OmniScene/omni_gs_nusc_novelview_r50_224x400.py --output-dir outputs/omni_gs_nusc_novelview_r50_224x400_vis --load-from checkpoints/checkpoint-100000
+# accelerate launch --config-file accelerate_config.yaml demo.py --py-config configs/OmniScene/omni_gs_nusc_novelview_r50_224x400.py --output-dir outputs/omni_gs_nusc_novelview_r50_224x400_vis --load-from workdirs/omni_gs_nusc_novelview_r50_224x400/latest
