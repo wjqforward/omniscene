@@ -74,7 +74,19 @@ def load_conditions(img_paths, reso):
         param_path = os.path.join(param_root, f"{split}_param", cam, f"{stem}.json")
         param = json.load(open(param_path))
         ck = np.array(param["camera_intrinsic"])
+        
+        orig_h, orig_w = 900, 1600
+        target_h, target_w = 224, 400
+        scale_h = target_h / orig_h
+        scale_w = target_w / orig_w
+
+        ck[0, 0] *= scale_w  # fx
+        ck[0, 2] *= scale_w  # cx
+        ck[1, 1] *= scale_h  # fy
+        ck[1, 2] *= scale_h  # cy
+
         cks.append(ck)
+
 
         # img (900*1600 -> 224*400)
         img_path = os.path.join(img_root, f"{split}", cam, f"{stem}.jpg")
