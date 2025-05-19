@@ -456,7 +456,7 @@ class OmniGaussian(BaseModule):
         gaussians_all = torch.cat([gaussians_pixel, gaussians_volume], dim=1)
 
         # optimize
-        gaussians_all = self.optimize_gaussians(data_dict, gaussians_all, num_iters=30)
+        gaussians_all = self.optimize_gaussians(data_dict, gaussians_all, num_iters=0)
 
         bs = gaussians_all.shape[0]     
         # forward 3 meters, return, and then rotate. backward 3 meters, return, and then rotate.
@@ -593,6 +593,7 @@ class OmniGaussian(BaseModule):
         gt_imgs = data_dict["imgs"].squeeze(0).float().to('cuda')
         gt_np = gt_imgs.detach().cpu().numpy()
         
+        # gt_imgs = gt_imgs.unsqueeze(0)
         for view_idx in range(6):  # 6 views
             view_data = gt_np[view_idx] # (3,224,400)
             view_data = np.transpose(view_data, (1, 2, 0))  # (224,400,3)
@@ -619,12 +620,17 @@ class OmniGaussian(BaseModule):
             rendered_imgs = render_pkg["image"]
             
             # l1 loss
-            l1_loss = torch.abs(rendered_imgs[:3] - gt_imgs[:3]).sum()
+            # print(rendered_imgs.shape)
+            # print(gt_imgs.shape)
+            l1_loss = torch.abs(rendered_imgs - gt_imgs.unsqueeze(0)).sum()
             
+            rendered_imgs = rendered_imgs.squeeze(0)
             ssim_loss = 0.0
-            for v in range(3):
+            for v in range(6):
                 rendered_view = rendered_imgs[v].unsqueeze(0)  # [1,3,224,400]
                 gt_view = gt_imgs[v].unsqueeze(0)              # [1,3,224,400]
+                # print(rendered_view.shape)
+                # print(gt_view.shape)
                 ssim_loss += 1 - ssim_criterion(rendered_view, gt_view)
             
             ssim_loss = ssim_loss * 1e6
