@@ -26,6 +26,9 @@ from scipy.spatial.transform import Rotation, Slerp
 import cv2
 from piqa import SSIM
 
+from tools.draw_box import draw_nuscenes_boxes
+from nuscenes.nuscenes import NuScenes
+
 def interpolate_c2w(c2w_start: torch.Tensor, 
                    c2w_end: torch.Tensor, 
                    t: float = 0.5) -> torch.Tensor:
@@ -507,6 +510,18 @@ class OmniGaussian(BaseModule):
 
         output_imgs = render_pkg_fuse["image"] # b v 3 h w
         output_depths = render_pkg_fuse["depth"].squeeze(2) # b v h w
+
+        nusc = NuScenes(version="v1.0-trainval", dataroot="/data/nuScenes")
+        output_imgs = draw_nuscenes_boxes(
+            nusc=nusc,
+            bin_token=data_dict["bin_token"],
+            output_imgs=output_imgs,
+            c2w_interp=c2w_interp,
+            fovxs_interp=fovxs_interp,
+            fovys_interp=fovys_interp,
+            pkl_dir="/data/nuScenes/v1.0-trainval/bin_infos_3.2m",
+            data_root="/data/nuScenes"
+        )
 
         preds = {"img": output_imgs, "depth": output_depths}
 
