@@ -610,7 +610,7 @@ class OmniGaussian(BaseModule):
             optimized_gaussians = torch.cat([position, color, opacity, rotation, scale], dim=-1)
             
             # render
-            render_pkg = self.renderer.render_test(
+            render_pkg = self.renderer.render(
                 gaussians=optimized_gaussians,
                 c2w=data_dict["output_c2ws"][:, -6:],
                 fovx=data_dict["output_fovxs"][:, -6:],

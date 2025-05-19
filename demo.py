@@ -135,45 +135,45 @@ def main(args):
 
     #time.sleep(10)
     time_s = time.time()
-    with torch.no_grad():
-        my_model.eval()
-        for i_iter, batch in enumerate(demo_dataloader):
-            data_time_e = time.time()
-            if torch.cuda.device_count() > 1:
-                preds, bin_tokens = my_model.module.forward_demo(batch)
-            else:
-                preds, bin_tokens = my_model.forward_demo(batch)
-            bs = preds["img"].shape[0]
-            pred_imgs = preds["img"]
-            pred_depths = preds["depth"]
-            logger.info('[Eval] Batch %d-%d'%(
-                    i_iter, pred_depths.device.index))
+    # with torch.no_grad():
+    my_model.eval()
+    for i_iter, batch in enumerate(demo_dataloader):
+        data_time_e = time.time()
+        if torch.cuda.device_count() > 1:
+            preds, bin_tokens = my_model.module.forward_demo(batch)
+        else:
+            preds, bin_tokens = my_model.forward_demo(batch)
+        bs = preds["img"].shape[0]
+        pred_imgs = preds["img"]
+        pred_depths = preds["depth"]
+        logger.info('[Eval] Batch %d-%d'%(
+                i_iter, pred_depths.device.index))
 
-            for b in range(bs):
-                bin_token = bin_tokens[b]
-                # dump rgb view
-                dump_path = osp.join(cfg.output_dir, "{}_rgb.mp4".format(bin_token))
-                video = (pred_imgs[b].clip(min=0, max=1) * 255).type(torch.uint8).cpu().numpy()
-                video_rec = wandb.Video(video[None], fps=30, format="mp4")
-                video_tensor = video_rec._prepare_video(video_rec.data)
-                clip = mpy.ImageSequenceClip(list(video_tensor), fps=30)
-                clip.write_videofile(dump_path, codec='libx264', preset='medium', logger=None)
-                # dump depth view
-                dump_path_dpt = osp.join(cfg.output_dir, "{}_depth.mp4".format(bin_token))
-                pred_depth = pred_depths[b].clamp(0.0, 100.0)
-                max_val = float(pred_depth.max())
-                video_dpt = depths_to_colors(pred_depths[b], concat="frame", max_val=max_val)
-                video_dpt = video_dpt.transpose((0, 3, 1, 2))
-                video_rec_dpt = wandb.Video(video_dpt[None], fps=30, format="mp4")
-                video_tensor_dpt = video_rec_dpt._prepare_video(video_rec_dpt.data)
-                clip_dpt = mpy.ImageSequenceClip(list(video_tensor_dpt), fps=30)
-                clip_dpt.write_videofile(dump_path_dpt, codec='libx264', preset='medium', logger=None)
-        
-        torch.cuda.empty_cache()
+        for b in range(bs):
+            bin_token = bin_tokens[b]
+            # dump rgb view
+            dump_path = osp.join(cfg.output_dir, "{}_rgb.mp4".format(bin_token))
+            video = (pred_imgs[b].clip(min=0, max=1) * 255).type(torch.uint8).cpu().numpy()
+            video_rec = wandb.Video(video[None], fps=30, format="mp4")
+            video_tensor = video_rec._prepare_video(video_rec.data)
+            clip = mpy.ImageSequenceClip(list(video_tensor), fps=30)
+            clip.write_videofile(dump_path, codec='libx264', preset='medium', logger=None)
+            # dump depth view
+            dump_path_dpt = osp.join(cfg.output_dir, "{}_depth.mp4".format(bin_token))
+            pred_depth = pred_depths[b].clamp(0.0, 100.0)
+            max_val = float(pred_depth.max())
+            video_dpt = depths_to_colors(pred_depths[b], concat="frame", max_val=max_val)
+            video_dpt = video_dpt.transpose((0, 3, 1, 2))
+            video_rec_dpt = wandb.Video(video_dpt[None], fps=30, format="mp4")
+            video_tensor_dpt = video_rec_dpt._prepare_video(video_rec_dpt.data)
+            clip_dpt = mpy.ImageSequenceClip(list(video_tensor_dpt), fps=30)
+            clip_dpt.write_videofile(dump_path_dpt, codec='libx264', preset='medium', logger=None)
+    
+    torch.cuda.empty_cache()
 
-        time_e = time.time()
-        logger.info("Finish demo ({:d} s).".format(
-            int(time_e - time_s)))
+    time_e = time.time()
+    logger.info("Finish demo ({:d} s).".format(
+        int(time_e - time_s)))
 
     # Create the pipeline using the trained modules and save it.
     accelerator.wait_for_everyone()
