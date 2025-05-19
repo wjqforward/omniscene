@@ -20,6 +20,34 @@ from .utils.benchmarker import Benchmarker
 from torchmetrics import PearsonCorrCoef
 from .utils.interpolation import interpolate_extrinsics
 
+import time
+import numpy as np
+from scipy.spatial.transform import Rotation, Slerp
+import cv2
+from piqa import SSIM
+
+def interpolate_c2w(c2w_start: torch.Tensor, 
+                   c2w_end: torch.Tensor, 
+                   t: float = 0.5) -> torch.Tensor:
+
+    c2w_start_np = c2w_start.cpu().numpy()
+    c2w_end_np = c2w_end.cpu().numpy()
+
+    R_start = c2w_start_np[:3, :3]
+    R_end = c2w_end_np[:3, :3]
+
+    quat_start = Rotation.from_matrix(R_start).as_quat()
+    quat_end = Rotation.from_matrix(R_end).as_quat()
+    slerp = Slerp([0, 1], Rotation.from_quat([quat_start, quat_end]))
+    R_interp = slerp(t).as_matrix()
+
+    t_interp = (1 - t) * c2w_start_np[:3, 3] + t * c2w_end_np[:3, 3]
+
+    c2w_interp = np.eye(4)
+    c2w_interp[:3, :3] = R_interp
+    c2w_interp[:3, 3] = t_interp
+
+    return torch.from_numpy(c2w_interp).to(device=c2w_start.device, dtype=c2w_start.dtype)
 
 @MODELS.register_module()
 class OmniGaussian(BaseModule):
@@ -427,6 +455,9 @@ class OmniGaussian(BaseModule):
         
         gaussians_all = torch.cat([gaussians_pixel, gaussians_volume], dim=1)
 
+        # optimize
+        gaussians_all = self.optimize_gaussians(data_dict, gaussians_all, num_iters=30)
+
         bs = gaussians_all.shape[0]     
         # forward 3 meters, return, and then rotate. backward 3 meters, return, and then rotate.
         c2w_cf = data_dict["output_c2ws"][:, -6]
@@ -535,3 +566,90 @@ class OmniGaussian(BaseModule):
         if render_pkg_volume is not None:
             for i in range(batch_size):
                 save_vis("volume", i, save_dir, n_rand_view, render_pkg_volume, None, rgbs_gt, depths_m_gt, mask_dptm, self.renderer)
+
+    def optimize_gaussians(self, data_dict, gaussians_all, num_iters=30, lr=2e-3):
+        
+        assert gaussians_all.dim() == 3, f"should be [B,N,14], and the actual size: {gaussians_all.shape}"
+        
+        position = gaussians_all[..., 0:3].detach().clone().to('cuda').requires_grad_(True)
+        color = gaussians_all[..., 3:6].detach().clone().to('cuda').requires_grad_(True)
+        opacity = gaussians_all[..., 6:7].detach().clone().to('cuda').requires_grad_(True)
+        rotation = gaussians_all[..., 7:11].detach().clone().to('cuda').requires_grad_(True)
+        scale = gaussians_all[..., 11:14].detach().clone().to('cuda').requires_grad_(True)
+        
+        # param
+        params_group = [
+            # {'params': [position], 'lr': lr},
+            {'params': [color], 'lr': lr},
+            {'params': [opacity], 'lr': lr},
+            # {'params': [rotation], 'lr': lr},
+            # {'params': [scale], 'lr': lr}
+        ]
+
+        ssim_criterion = SSIM().to('cuda')
+        optimizer = torch.optim.Adam(params_group)
+        
+        # gt
+        gt_imgs = data_dict["imgs"].squeeze(0).float().to('cuda')
+        gt_np = gt_imgs.detach().cpu().numpy()
+        
+        for view_idx in range(6):  # 6 views
+            view_data = gt_np[view_idx] # (3,224,400)
+            view_data = np.transpose(view_data, (1, 2, 0))  # (224,400,3)
+
+            view_data = (view_data * 255).astype(np.uint8)
+            imageio.imwrite(
+                os.path.join(f"gt_{view_idx}.png"), 
+                view_data
+            )
+
+        for iter in range(num_iters):
+            optimizer.zero_grad()
+            loss = 0.0
+
+            optimized_gaussians = torch.cat([position, color, opacity, rotation, scale], dim=-1)
+            
+            # render
+            render_pkg = self.renderer.render_test(
+                gaussians=optimized_gaussians,
+                c2w=data_dict["output_c2ws"][:, -6:],
+                fovx=data_dict["output_fovxs"][:, -6:],
+                fovy=data_dict["output_fovys"][:, -6:]
+            )
+            rendered_imgs = render_pkg["image"]
+            
+            # l1 loss
+            l1_loss = torch.abs(rendered_imgs[:3] - gt_imgs[:3]).sum()
+            
+            ssim_loss = 0.0
+            for v in range(3):
+                rendered_view = rendered_imgs[v].unsqueeze(0)  # [1,3,224,400]
+                gt_view = gt_imgs[v].unsqueeze(0)              # [1,3,224,400]
+                ssim_loss += 1 - ssim_criterion(rendered_view, gt_view)
+            
+            ssim_loss = ssim_loss * 1e6
+            
+            loss += l1_loss + ssim_loss
+            loss.backward()
+            
+            # update
+            optimizer.step()
+            
+            print(f"iter {iter+1}/{num_iters} | loss: {loss.item():.4f}")
+
+            # if iter == 0:
+            #     rendered_np = rendered_imgs.detach().cpu().numpy()
+            #     print(f"[DEBUG] render shape: {rendered_np.shape}")  # (6,3,224,400)
+
+            #     for v in range(6):
+                    
+            #         view_data = rendered_np[v]  # (3,224,400)
+            #         view_data = view_data.transpose(1, 2, 0)  # (224,400,3)
+
+            #         view_data = (view_data * 255).astype(np.uint8)
+            #         imageio.imwrite(
+            #             os.path.join(f"iter0_v{v}.png"),
+            #             view_data
+            #         )
+
+        return torch.cat([position, color, opacity, rotation, scale], dim=-1).detach()
