@@ -31,60 +31,64 @@ def draw_nuscenes_boxes(
     color=(0, 255, 0),
     thickness=2
 ):
-
-    B, N, _, H, W = output_imgs.shape
+    B, N, _, H, W = output_imgs.shape    B, N, _, H, W = output_imgs.shape
     assert B == 1
-    output_imgs_np = (output_imgs[0].permute(0, 2, 3, 1).cpu().numpy() * 255).astype(np.uint8)  # (N, H, W, 3)
+    imgs_np = (output_imgs[0].permute(0, 2, 3, 1).cpu().numpy() * 255).astype(np.uint8)
 
-    # load boxes in the world frame
-    with open(osp.join(pkl_dir, f"{bin_token}.pkl"), "rb") as f:
+    # Load ego2world (lidar pose in global world) from .pkl frame 0
+    with open(osp.join(pkl_dir, f"{bin_token[0]}.pkl"), 'rb') as f:
         bin_info = pkl.load(f)
+    frame_info = bin_info['sensor_info']['LIDAR_TOP'][0]
+    ego2world = np.eye(4)
+    ego2world[:3, :3] = Quaternion(frame_info['ego2global_rotation']).rotation_matrix
+    ego2world[:3, 3] = np.array(frame_info['ego2global_translation'])
 
-    all_boxes_world = []
-    for cam in bin_info["sensor_info"]:
-        if not cam.startswith("CAM_"):
+    # Collect boxes (in global world)
+    all_boxes = []
+    for cam in bin_info['sensor_info']:
+        if not cam.startswith('CAM_'):
             continue
-        for frame_info in bin_info["sensor_info"][cam]:
-            sample_data_token = frame_info["sample_data_token"]
-            boxes = nusc.get_boxes(sample_data_token)
-            all_boxes_world.extend(boxes)
-
-    # draw box on each img
-    rendered_with_boxes = []
-    for i in range(N):
-        img = output_imgs_np[i].copy()
-        c2w = c2w_interp[0, i].cpu().numpy()  # (4, 4)
-        w2c = np.linalg.inv(c2w)
-        fovx = fovxs_interp[0, i].item()
-        fovy = fovys_interp[0, i].item()
-        K = fov_to_intrinsics(fovx, fovy, H, W)
-
-        for box in all_boxes_world:
-            box_c = Box(box.center.copy(), box.wlh.copy(), box.orientation)
-
-            # world to cam
-            box_c.translate(-c2w[:3, 3])
-            box_c.rotate(Quaternion(matrix=w2c[:3, :3]))
-
-            # filter box behind cam
-            if box_c.center[2] <= 0.1:
+        for frame_info in bin_info['sensor_info'][cam]:
+            token = frame_info.get('sample_data_token', None)
+            if token is None:
+                continue
+            try:
+                boxes = nusc.get_boxes(token)
+                all_boxes.extend(boxes)
+            except:
                 continue
 
-            corners_3d = box_c.corners()  # (3, 8)
-            corners_2d = view_points(corners_3d, K, normalize=True)  # (3, 8)
+    imgs_out = []
+    for i in range(N):
+        img = imgs_np[i].copy()
+        c2w = c2w_interp[0, i].cpu().numpy()
+        w2c = np.linalg.inv(c2w)
 
-            corners_2d = corners_2d[:2].T.astype(int)  # (8, 2)
+        fovx, fovy = fovxs_interp[0, i].item(), fovys_interp[0, i].item()
+        fx = 0.5 * W / np.tan(0.5 * fovx)
+        fy = 0.5 * H / np.tan(0.5 * fovy)
+        cx = W / 2
+        cy = H / 2
+        K = np.array([[fx, 0, cx], [0, fy, cy], [0, 0, 1]])
+
+        for box in all_boxes:
+            corners_world = box.corners()
+            corners_homo = np.vstack([corners_world, np.ones((1, 8))])
+            corners_lidar = np.linalg.inv(ego2world) @ corners_homo
+            corners_cam = w2c @ corners_lidar
+
+            if np.all(corners_cam[2, :] <= 0.1):
+                continue
+
+            corners_2d = view_points(corners_cam[:3], K, normalize=True)[:2].T.astype(int)
             for j in range(4):
                 cv2.line(img, tuple(corners_2d[j]), tuple(corners_2d[(j + 1) % 4]), color, thickness)
                 cv2.line(img, tuple(corners_2d[j + 4]), tuple(corners_2d[(j + 1) % 4 + 4]), color, thickness)
                 cv2.line(img, tuple(corners_2d[j]), tuple(corners_2d[j + 4]), color, thickness)
 
-        rendered_with_boxes.append(img)
+        imgs_out.append(img)
 
-    # Convert back to torch tensor (b, v, 3, h, w)
-    rendered_with_boxes = np.stack(rendered_with_boxes, axis=0)  # (v, H, W, 3)
-    rendered_with_boxes = rendered_with_boxes.astype(np.float32) / 255.0
-    rendered_with_boxes = torch.from_numpy(rendered_with_boxes).permute(0, 3, 1, 2)  # (v, 3, h, w)
-    rendered_with_boxes = rendered_with_boxes.unsqueeze(0)  # (1, v, 3, h, w)
+    imgs_out = np.stack(imgs_out).astype(np.float32) / 255.0
+    imgs_out = torch.from_numpy(imgs_out).permute(0, 3, 1, 2).unsqueeze(0)
+    return imgs_out
 
-    return rendered_with_boxes  # List[np.ndarray], len=N

@@ -427,11 +427,14 @@ class OmniGaussian(BaseModule):
         return preds, gts, data_dict["bin_token"]
     
     def forward_demo(self, batch):
+        
         data_dict = self.get_data(batch)
         img = data_dict["imgs"]
         bs = img.shape[0]
         img_feats = self.extract_img_feat(img=img, status="test")
 
+        print(data_dict.keys())
+        print(data_dict['bin_token'])
         # pixel-gs prediction
         gaussians_pixel, gaussians_feat = self.pixel_gs(
                 rearrange(img_feats[0], "b v c h w -> (b v) c h w"),
@@ -511,7 +514,7 @@ class OmniGaussian(BaseModule):
         output_imgs = render_pkg_fuse["image"] # b v 3 h w
         output_depths = render_pkg_fuse["depth"].squeeze(2) # b v h w
 
-        nusc = NuScenes(version="v1.0-trainval", dataroot="/data/nuScenes")
+        nusc = NuScenes(version="v1.0-trainval", dataroot="data/nuScenes")
         output_imgs = draw_nuscenes_boxes(
             nusc=nusc,
             bin_token=data_dict["bin_token"],
@@ -519,8 +522,8 @@ class OmniGaussian(BaseModule):
             c2w_interp=c2w_interp,
             fovxs_interp=fovxs_interp,
             fovys_interp=fovys_interp,
-            pkl_dir="/data/nuScenes/v1.0-trainval/bin_infos_3.2m",
-            data_root="/data/nuScenes"
+            pkl_dir="data/nuScenes/v1.0-trainval/bin_infos_3.2m",
+            data_root="data/nuScenes"
         )
 
         preds = {"img": output_imgs, "depth": output_depths}
