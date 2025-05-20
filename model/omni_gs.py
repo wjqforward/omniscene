@@ -519,11 +519,11 @@ class OmniGaussian(BaseModule):
             nusc=nusc,
             bin_token=data_dict["bin_token"],
             output_imgs=output_imgs,
-            c2w_interp=c2w_interp,
-            fovxs_interp=fovxs_interp,
-            fovys_interp=fovys_interp,
+            c2ws=c2w_interp,
+            fovxs=fovxs_interp,
+            fovys=fovys_interp,
             pkl_dir="data/nuScenes/v1.0-trainval/bin_infos_3.2m",
-            data_root="data/nuScenes"
+
         )
 
         preds = {"img": output_imgs, "depth": output_depths}
