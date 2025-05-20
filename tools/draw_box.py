@@ -35,6 +35,12 @@ def draw_nuscenes_boxes(
     with open(osp.join(pkl_dir, f"{bin_token[0]}.pkl"), "rb") as f:
         bin_info = pkl.load(f)
 
+    # Use center frame's LiDAR for lidar2ego
+    lidar_frame = bin_info["sensor_info"]["LIDAR_TOP"][0]
+    lidar2ego = np.eye(4)
+    lidar2ego[:3, :3] = Quaternion(lidar_frame['sensor2ego_rotation']).rotation_matrix
+    lidar2ego[:3, 3] = lidar_frame['sensor2ego_translation']
+
     box_records = []
     for cam in bin_info["sensor_info"]:
         if not cam.startswith("CAM_"):
@@ -51,12 +57,8 @@ def draw_nuscenes_boxes(
                 ego2world[:3, :3] = Quaternion(pose['rotation']).rotation_matrix
                 ego2world[:3, 3] = pose['translation']
 
-                lidar2ego = np.eye(4)
-                lidar2ego[:3, :3] = Quaternion(frame['sensor2ego_rotation']).rotation_matrix
-                lidar2ego[:3, 3] = frame['sensor2ego_translation']
-
                 for box in boxes:
-                    box_records.append((box, ego2world, lidar2ego))
+                    box_records.append((box, ego2world))
             except Exception as e:
                 print(f"[warn] Failed to load box for {frame['sample_data_token']}: {e}")
                 continue
@@ -70,7 +72,7 @@ def draw_nuscenes_boxes(
         fovy = fovys[0, i].item()
         K = fov_to_intrinsics(fovx, fovy, H, W)
 
-        for box, ego2world, lidar2ego in box_records:
+        for box, ego2world in box_records:
             corners = box.corners()
             if not isinstance(corners, np.ndarray) or corners.shape != (3, 8):
                 print(f"[warn] Invalid box corners shape: {corners.shape}")
